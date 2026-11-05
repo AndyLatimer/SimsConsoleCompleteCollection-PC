@@ -42,6 +42,16 @@ const NamedAspect kAspects[] = {{"auto", 0.0f},           {"4:3", 4.0f / 3.0f}, 
 
 const char* kHdrModes[] = {"off", "auto", "on"};  // HdrMode's order
 
+// XC_LANGUAGE's values, from 1: XC_LANGUAGE_ENGLISH ... XC_LANGUAGE_PORTUGUESE
+const char* kLanguages[] = {"english", "japanese", "german",  "french",    "spanish",
+                            "italian", "korean",   "chinese", "portuguese"};
+
+uint32_t LanguageIndex(const char* name) {
+    for (uint32_t i = 0; i < std::size(kLanguages); i++)
+        if (std::strcmp(name, kLanguages[i]) == 0) return i + 1;
+    return 0;
+}
+
 // the chosen entry's index, auto for a name this build does not know
 uint32_t ChosenAspect() {
     const std::string& key = Get().aspect_ratio;
@@ -87,6 +97,9 @@ void Load() {
         if (hdr == m) s.hdr = hdr;
     s.hdr_paper_white = t["hdr_paper_white"].value_or(s.hdr_paper_white);
     s.hdr_peak = t["hdr_peak"].value_or(s.hdr_peak);
+    // a name this build does not know keeps the default rather than reaching the title as a bad value
+    std::string language = t["language"].value_or(s.language);
+    if (LanguageIndex(language.c_str())) s.language = language;
     for (const Option& o : kGame.options) {
         if (o.flag) *o.flag = t[o.key].value_or(*o.flag);
         else *o.value = t[o.key].value_or(*o.value);
@@ -110,7 +123,8 @@ toml::table Table() {
                   {"join_ip", s.join_ip},
                   {"hdr", s.hdr},
                   {"hdr_paper_white", int64_t(s.hdr_paper_white)},
-                  {"hdr_peak", int64_t(s.hdr_peak)}};
+                  {"hdr_peak", int64_t(s.hdr_peak)},
+                  {"language", s.language}};
     for (const Option& o : kGame.options) {
         if (o.flag) t.insert(o.key, *o.flag);
         else t.insert(o.key, int64_t(*o.value));
@@ -124,6 +138,13 @@ toml::table Table() {
 void Save() {
     std::ofstream f(File());
     f << Table() << "\n";
+}
+
+uint32_t XboxLanguage() {
+    if (const char* env = std::getenv("XBE_LANGUAGE"); env && *env)
+        if (uint32_t i = LanguageIndex(env)) return i;
+    uint32_t i = LanguageIndex(Get().language.c_str());
+    return i ? i : 1;
 }
 
 void LogSettings() {

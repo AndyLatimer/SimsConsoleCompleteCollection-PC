@@ -30,7 +30,13 @@ struct Settings {
     std::string hdr = "off";
     uint32_t hdr_paper_white = 200;  // nits the game's white is shown at in HDR
     uint32_t hdr_peak = 0;           // nits nothing goes past in HDR, 0 the display's own maximum
+    // the console's language setting (EEPROM XC_LANGUAGE) as the title reads it at boot: english, japanese, german,
+    // french, spanish, italian, korean, chinese or portuguese. Whether the title has that language on its disc is the
+    // title's business; one without it falls back the way it did on a console set to it
+    std::string language = "english";
 };
+// app::Get().language as the XC_LANGUAGE value (1 english ... 9 portuguese); XBE_LANGUAGE=<name> overrides it
+uint32_t XboxLanguage();
 
 Settings& Get();
 void Load();
