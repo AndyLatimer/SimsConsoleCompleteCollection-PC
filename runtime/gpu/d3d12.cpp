@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
 #include <optional>
 #include <unordered_map>
@@ -1531,6 +1532,66 @@ void D3D12Backend::Blit(ID3D12Resource* src, DXGI_FORMAT fmt, const float uvrect
     DrawFullScreen(EnsureBlitPipeline(o.rtv, o.over), cb.gpu, slot, si);
 }
 
+// The shader bytecode cache on disk: shadercache\<hash>.cso beside the exe, one file per compiled
+// source, entry point and profile. It is consulted only from Compile, synchronously, on the thread
+// that already compiles - nothing is deferred and no draw waits on another thread, which is what the
+// reverted city-frame rework did and what crashed the driver (docs/status.md). A first sight of an
+// effect still compiles once; every later sight, in this run or the next, loads the bytecode.
+namespace {
+
+// part of every key: a change of compiler or flags makes every old file a miss, never a wrong hit
+constexpr char kCacheSalt[] = "d3dcompile47 O1 v1";
+
+std::filesystem::path ShaderCacheDir() {
+    static const std::filesystem::path dir = [] {
+        std::filesystem::path d = app::ExeDir() / "shadercache";
+        std::error_code ec;
+        std::filesystem::create_directories(d, ec);
+        return ec ? std::filesystem::path() : d;
+    }();
+    return dir;
+}
+
+std::filesystem::path ShaderCacheFile(uint64_t hash) {
+    char name[32];
+    std::snprintf(name, sizeof name, "%016llx.cso", static_cast<unsigned long long>(hash));
+    return ShaderCacheDir() / name;
+}
+
+// the bytecode stored for this hash, or null: missing, unreadable or not a DXBC container
+ComPtr<ID3DBlob> LoadCachedShader(uint64_t hash) {
+    if (ShaderCacheDir().empty()) return nullptr;
+    std::ifstream f(ShaderCacheFile(hash), std::ios::binary | std::ios::ate);
+    if (!f) return nullptr;
+    const std::streamoff size = f.tellg();
+    if (size < 32 || size > (16 << 20)) return nullptr;
+    ComPtr<ID3DBlob> blob;
+    if (FAILED(D3DCreateBlob(SIZE_T(size), &blob))) return nullptr;
+    f.seekg(0);
+    if (!f.read(static_cast<char*>(blob->GetBufferPointer()), size)) return nullptr;
+    if (std::memcmp(blob->GetBufferPointer(), "DXBC", 4) != 0) return nullptr;
+    return blob;
+}
+
+// written beside its final name and renamed into place, so a crash mid-write leaves no half file
+void StoreCachedShader(uint64_t hash, ID3DBlob* code) {
+    if (ShaderCacheDir().empty() || !code) return;
+    const std::filesystem::path final_path = ShaderCacheFile(hash);
+    std::filesystem::path tmp = final_path;
+    tmp += ".tmp";
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        if (!f) return;
+        f.write(static_cast<const char*>(code->GetBufferPointer()), std::streamsize(code->GetBufferSize()));
+        if (!f) return;
+    }
+    std::error_code ec;
+    std::filesystem::rename(tmp, final_path, ec);
+    if (ec) std::filesystem::remove(tmp, ec);
+}
+
+}  // namespace
+
 ID3DBlob* D3D12Backend::Compile(const std::string& src, const char* entry, const char* profile, uint64_t& hash) {
     // one source can hold several entry points
     uint64_t profile_seed = Hash(profile, std::strlen(profile));
@@ -1538,6 +1599,14 @@ ID3DBlob* D3D12Backend::Compile(const std::string& src, const char* entry, const
     hash = Hash(src.data(), src.size(), entry_seed);
     auto it = blobs_.find(hash);
     if (it != blobs_.end()) return it->second.Get();
+    // the disk key also carries the compiler and its flags; the in-memory one stays as it was
+    const uint64_t disk_key = Hash(kCacheSalt, sizeof kCacheSalt - 1, hash);
+    if (ComPtr<ID3DBlob> cached = LoadCachedShader(disk_key)) {
+        static uint64_t loaded = 0;
+        if (++loaded % 50 == 1) LOGI("d3d12: shader cache: %llu loaded from disk", (unsigned long long)loaded);
+        blobs_[hash] = cached;
+        return cached.Get();
+    }
     ComPtr<ID3DBlob> code;
     ComPtr<ID3DBlob> err;
     PerfScope perf_compile{g_perf.compile};
@@ -1550,6 +1619,7 @@ ID3DBlob* D3D12Backend::Compile(const std::string& src, const char* entry, const
         blobs_[hash] = nullptr;
         return nullptr;
     }
+    StoreCachedShader(disk_key, code.Get());
     blobs_[hash] = code;
     return code.Get();
 }
