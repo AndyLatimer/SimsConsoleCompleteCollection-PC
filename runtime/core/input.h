@@ -15,5 +15,9 @@ void Init();  // window thread, before boot
 // the controller on that port, then GameInfo::pad
 Pad Poll(int port);
 void Rumble(int port, uint16_t left, uint16_t right);
+// the controller on that port as SDL names it ("DualSense Wireless Controller"), "" for none
+const char* Name(int port);
+// the light bar colour of the pads that have one (DualSense, DualShock 4), set now and on every plug-in
+void SetLight(uint8_t r, uint8_t g, uint8_t b);
 
 }  // namespace input

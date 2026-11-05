@@ -2,6 +2,7 @@
 #include "core/input.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <iterator>
 #include <mutex>
 
@@ -18,6 +19,9 @@ namespace {
 std::mutex g_lock;
 bool g_sdl = false;
 SDL_Gamepad* g_pads[4] = {};
+char g_names[4][96] = {};
+bool g_light = false;
+uint8_t g_light_rgb[3] = {};
 
 void AddPad(SDL_JoystickID id) {
     for (SDL_Gamepad* pad : g_pads)
@@ -26,6 +30,9 @@ void AddPad(SDL_JoystickID id) {
     if (slot == std::end(g_pads)) return;
     *slot = SDL_OpenGamepad(id);
     const char* name = *slot ? SDL_GetGamepadName(*slot) : SDL_GetError();
+    const int port = int(slot - g_pads);
+    std::snprintf(g_names[port], sizeof g_names[port], "%s", *slot && name ? name : "");
+    if (*slot && g_light) SDL_SetGamepadLED(*slot, g_light_rgb[0], g_light_rgb[1], g_light_rgb[2]);
     LOGI("input: controller %d %s: %s", int(slot - g_pads) + 1, *slot ? "plugged in" : "failed to open", name ? name : "");
 }
 
@@ -34,6 +41,7 @@ void RemovePad(SDL_JoystickID id) {
         if (!g_pads[i] || SDL_GetGamepadID(g_pads[i]) != id) continue;
         SDL_CloseGamepad(g_pads[i]);
         g_pads[i] = nullptr;
+        g_names[i][0] = '\0';
         LOGI("input: controller %d unplugged", i + 1);
     }
 }
@@ -90,6 +98,8 @@ Pad Poll(int port) {
                 SDL_GAMEPAD_BUTTON_DPAD_RIGHT, SDL_GAMEPAD_BUTTON_START,     SDL_GAMEPAD_BUTTON_BACK,
                 SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK};
             for (int i = 0; i < 8; i++) p.buttons |= uint16_t(SDL_GetGamepadButton(pad, kButtons[i]) << i);
+            // a PlayStation pad's touchpad click is Back too: its Create/Share button is small and out of the way
+            if (SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_TOUCHPAD)) p.buttons |= 1u << 5;
             // A B X Y black white
             constexpr SDL_GamepadButton kAnalog[] = {SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST,
                                                      SDL_GAMEPAD_BUTTON_WEST,  SDL_GAMEPAD_BUTTON_NORTH,
@@ -116,6 +126,21 @@ void Rumble(int port, uint16_t left, uint16_t right) {
     if (app::kGame.rumble) app::kGame.rumble(port, left, right);
     std::lock_guard lock(g_lock);
     if (port >= 0 && port < 4 && g_pads[port]) SDL_RumbleGamepad(g_pads[port], left, right, 0);
+}
+
+const char* Name(int port) {
+    std::lock_guard lock(g_lock);
+    return port >= 0 && port < 4 ? g_names[port] : "";
+}
+
+void SetLight(uint8_t r, uint8_t g, uint8_t b) {
+    std::lock_guard lock(g_lock);
+    g_light = true;
+    g_light_rgb[0] = r;
+    g_light_rgb[1] = g;
+    g_light_rgb[2] = b;
+    for (SDL_Gamepad* pad : g_pads)
+        if (pad) SDL_SetGamepadLED(pad, r, g, b);
 }
 
 }  // namespace input
