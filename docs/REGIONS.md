@@ -41,8 +41,18 @@ The PAL xbe chooses its text from the console language (`XC_LANGUAGE`). The SDK 
 `spanish` when the file names none (`src/common/game_info.cpp`). Verified 2026-11-06: logo "Los Sims 2",
 "Todos los derechos reservados", save-select dialog in Spanish.
 
-## Not yet ported to PAL
+## Frame step (ported)
 
-`src/game/hooks.cpp` (USA): the frame-step quantiser `sub_001C2400` and pad auto-repeat
-`sub_001BCA50`. Their PAL counterparts are not located yet; until then the PAL build runs the
-engine's own 1/60-quantised step (correct at a 60 fps cap with vsync, too fast uncapped).
+`src/game_pal/hooks.cpp` carries the USA hooks to PAL, found by code rather than offset:
+quantiser `0x1C3BC0` (USA `0x1C2400`), tick size `0x3540D4`, n15 `0x33B930`, tick total `0x3B9B0C`,
+pad repeat `0x1BE240` (USA `0x1BCA50`).
+
+The PAL engine's tick is **0.02 s**, not the USA's 1/60 s: the ctor at `0x1C389A` copies it from
+`0x317C40`. Unhooked, every 16.7 ms frame at 60 fps is stepped as 20 ms, so the game runs 1.2x fast
+even at a 60 fps cap. The hook steps by the real elapsed time in 1 ms ticks. The pad repeat is rescaled
+against 50 polls/s, the console's PAL pace. `SIMS2_NO_STEP=1` / `SIMS2_NO_REPEAT=1` turn them off for
+comparison.
+
+Verified 2026-11-06: the log shows the hook stepping the real elapsed time
+(`elapsed 0.0748 s -> 75 ticks of 0.000997 s`), with no exceptions in a 25 s run. Not yet measured:
+in-game clock, needs and animations against wall time at 60 fps and uncapped.

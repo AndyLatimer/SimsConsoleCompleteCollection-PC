@@ -24,12 +24,13 @@ Estados: **Probado** (verificado jugando o con capturas) · **Sin probar** · **
 | Cierre por llamada indirecta a `0x20BF0` | **Sin probar** | añadida en `[functions]`; el juego se cerraba a los 37,9 s de jugar |
 | A → ✕ Cruz (DXT3 `dd9aa593...`) | **Probado** | visto en el volcado repintado; el usuario coge objetos con ✕ |
 | X → □ Cuadrado (DXT3 `bb44466a...`) | **Sin probar** | |
+| Paso temporal PAL (tick de 20 ms → tiempo real) | **Probado** (el hook se ejecuta) | log `frame step`; falta medir el reloj del juego |
 | Caché de shaders en disco, nombres de mando y barra de luz (SDK) | **Sin probar** en Sims 2 | importado del SDK de Urbz |
 
 ## Pendiente (por prioridad)
 
 1. Más iconos de botón: B, Y, la bola plateada (¿Blanco/L1?), "D" e "I" (`X:/projects/sims2-pc/button-assets/README.md`). Hacen falta formas L1/R1 en `button_glyphs.cpp`.
-2. Paso temporal PAL: localizar el equivalente de `sub_001C2400` (USA) y portar `src/game/hooks.cpp` a `src/game_pal/`. Sin él, el juego va a la velocidad correcta con 60 FPS y vsync, pero se acelera sin límite.
+2. Paso temporal: medir el reloj del juego y las necesidades frente al tiempo real a 60 FPS y sin límite, comparando con `SIMS2_NO_STEP=1`.
 3. Guardar, cerrar y cargar: matriz real de pruebas.
 4. Mando: DualSense en el menú F1 (ajustes `pad_*` de Urbz), conexión y desconexión en caliente, jugador 2.
 5. Rendimiento: medir con `framelog` y `framestats` (Urbz).
