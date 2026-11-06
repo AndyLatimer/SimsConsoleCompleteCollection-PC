@@ -3,6 +3,11 @@ setlocal
 set "GAME_TITLE=The Sims"
 set "GAME_XBE=default.xbe"
 set "GAME_EXE=Sims1"
+set "PRESET=release"
+if /i "%~1"=="debug" set "PRESET=debug"
+if /i "%~1"=="relwithdebinfo" set "PRESET=relwithdebinfo"
+if /i "%~1"=="release" set "PRESET=release"
+if not "%~1"=="" if /i not "%~1"=="debug" if /i not "%~1"=="release" if /i not "%~1"=="relwithdebinfo" exit /b 2
 title %GAME_TITLE% - Build
 cd /d "%~dp0"
 echo.
@@ -13,11 +18,13 @@ echo.
 set "PF86=%ProgramFiles(x86)%"
 set "VSINST=%PF86%\Microsoft Visual Studio\Installer"
 set "VSWHERE=%VSINST%\vswhere.exe"
-set "OUT=%CD%\out\build\release"
+set "OUT=%CD%\out\build\%PRESET%"
 
 rem The port itself runs straight from a disc image in assets. The build needs the XBE as a file:
 rem CMake hashes it and the recompiler reads its sections, so take that one file out of the image.
-if not exist assets\%GAME_XBE% call :fromiso
+call :findpython
+if not defined PY goto :nopython
+"%PY%" tools\game_data.py prepare || goto :fail
 if not exist assets\%GAME_XBE% goto :nogame
 
 rem toolchain
@@ -46,12 +53,12 @@ for /f "tokens=*" %%v in ('clang++ --version ^| findstr /i version') do echo    
 
 rem symbols
 echo [2/3] XDK symbols
-cmake --preset release >nul || goto :fail
+cmake --preset %PRESET% || goto :fail
 findstr /b /l /c:"[symbols]" config\game.toml >nul 2>nul && echo       config\game.toml already written && goto :game
-cmake --build out\build\release --target xbe_symbols >nul || goto :fail
+cmake --build "%OUT%" --target xbe_symbols >nul || goto :fail
 rem the configure step wrote where the SDK is
-if not exist out\build\release\sdk_dir.txt echo       out\build\release\sdk_dir.txt was not written, update the SDK. && goto :fail
-set /p SDK=<out\build\release\sdk_dir.txt
+if not exist "%OUT%\sdk_dir.txt" goto :fail
+set /p SDK=<"%OUT%\sdk_dir.txt"
 if not exist config mkdir config
 "%OUT%\xbe_symbols.exe" assets\%GAME_XBE% "%SDK%\xdk" --out config\game.toml || goto :fail
 
@@ -59,11 +66,11 @@ rem game
 :game
 echo [3/3] Game code
 echo       first build recompiles %GAME_XBE%, expect 30 to 90 minutes ...
-cmake --build out\build\release || goto :fail
+cmake --build "%OUT%" || goto :fail
 
 echo.
 echo   %GAME_TITLE% built.
-echo   out\build\release\%GAME_EXE%.exe
+echo   out\build\%PRESET%\%GAME_EXE%.exe
 echo.
 if defined CI exit /b 0
 choice /c YN /n /m "  Play now? [Y/N] "
@@ -74,6 +81,7 @@ rem helpers
 :setuptools
 set TOOLS_OK=
 set MISSING=
+set "PATH=%VSINST%;%PATH%"
 call "%VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=amd64 -host_arch=amd64 >nul
 set "VSCMAKE=%VSDIR%\Common7\IDE\CommonExtensions\Microsoft\CMake"
 set "PATH=%VSCMAKE%\CMake\bin;%VSCMAKE%\Ninja;%VSDIR%\VC\Tools\Llvm\x64\bin;%PATH%"
@@ -98,25 +106,17 @@ echo                                     and "C++ CMake tools for Windows"
 echo         git                      -  https://git-scm.com/download/win
 goto :fail
 
-rem Takes just the XBE out of the first disc image in assets. No parenthesised block touches %ISO%:
-rem cmd expands it while it parses the whole block, and a disc image called "... (USA).iso" closes
-rem the block on its own bracket.
-:fromiso
-set "ISO="
-for %%i in (assets\*.iso) do set "ISO=%%i"
-if not defined ISO exit /b 0
+rem game_data.py validates an explicit image; multiple images never silently select a region.
+:findpython
 set "PY="
 where python >nul 2>nul && set "PY=python"
-if defined PY goto :fromiso_run
+if defined PY exit /b 0
 where py >nul 2>nul && set "PY=py"
-if defined PY goto :fromiso_run
-echo   A disc image is in assets but Python is not installed, so %GAME_XBE% cannot be taken
-echo   out of it. Install Python from https://python.org and run this again.
 exit /b 0
-:fromiso_run
-echo   taking %GAME_XBE% out of %ISO%
-"%PY%" tools\xiso_extract.py extract "%ISO%" assets --only %GAME_XBE%
-exit /b 0
+
+:nopython
+echo   Python 3.12 or newer is required to validate the original Xbox data.
+goto :fail
 
 :nogame
 echo   Put the game in the assets folder first:

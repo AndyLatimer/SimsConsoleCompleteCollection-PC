@@ -6,16 +6,11 @@ project(Sims1 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# the SDK: sdk/ here, a checkout beside this repository, else downloaded
+# Use the SDK revision recorded by the submodule, never a different sibling or moving main.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/sdk/cmake/XbeRecomp.cmake)
     set(SDK ${CMAKE_CURRENT_SOURCE_DIR}/sdk)
-elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../XboxXBERecomp/cmake/XbeRecomp.cmake)
-    set(SDK ${CMAKE_CURRENT_SOURCE_DIR}/../XboxXBERecomp)
 else()
-    include(FetchContent)
-    FetchContent_Declare(xbe_sdk GIT_REPOSITORY https://github.com/TGP482/XboxXBERecomp.git GIT_TAG main)
-    FetchContent_MakeAvailable(xbe_sdk)
-    set(SDK ${xbe_sdk_SOURCE_DIR})
+    message(FATAL_ERROR "SDK missing. Run: git submodule update --init --recursive")
 endif()
 # host-tools preset: xbe_recomp and xbe_symbols alone, built for this machine. A cross build
 # (windows-cross) runs xbe_recomp during the build and takes it from there (XBE_HOST_TOOLS_DIR).
@@ -23,6 +18,22 @@ option(XBE_HOST_TOOLS_ONLY "build only the SDK's host tools, not the game" OFF)
 if(XBE_HOST_TOOLS_ONLY)
     include(${SDK}/cmake/XbeTools.cmake)
     return()
+endif()
+
+# This config and the game hooks contain USA addresses. Hashing an arbitrary PAL XBE into
+# kImageSha1 would otherwise make the runtime accept it with the wrong recompiled hooks.
+set(SIMS1_XBE "${CMAKE_CURRENT_SOURCE_DIR}/assets/default.xbe")
+if(NOT EXISTS "${SIMS1_XBE}")
+    message(FATAL_ERROR "Game data missing. Run: python tools/game_data.py import <Xbox ISO or extracted directory>. Tools alone: cmake --preset tools-release")
+endif()
+file(SHA1 "${SIMS1_XBE}" SIMS1_XBE_SHA1)
+set(SIMS1_USA_HASHES
+    "40ab6f97e8ee3bf4102a5a7820dcb8047fc30097"
+    # User's USA disc: all 128 named SDK functions and game hook addresses audited.
+    # docs/USA_DISC_VARIANT.md records evidence and the remaining runtime validation.
+    "9e0526fc2ec6ad4896363486a404949ee3bea53f")
+if(NOT SIMS1_XBE_SHA1 IN_LIST SIMS1_USA_HASHES)
+    message(FATAL_ERROR "Unsupported default.xbe SHA-1: ${SIMS1_XBE_SHA1}. This config requires USA 40ab6f97e8ee3bf4102a5a7820dcb8047fc30097. Inspect PAL separately; do not apply USA hooks to it.")
 endif()
 include(${SDK}/cmake/XbeRecomp.cmake)
 

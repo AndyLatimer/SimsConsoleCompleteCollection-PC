@@ -30,6 +30,12 @@ bool StepOff() {
     return off;
 }
 
+// SIMS1_NO_MEDIACHECK: run XAPI's DVD media check at 0xCA891 untouched (docs/saves.md)
+bool MediaCheckOff() {
+    static const bool off = HookOff("SIMS1_NO_MEDIACHECK");
+    return off;
+}
+
 // the frame step's globals (docs/frame-rate.md)
 constexpr uint32_t kTickSize = 0x324220u;   // float, seconds per tick: 1/60 (0x12FA01) or 0.02 (0x12F9F5)
 constexpr uint32_t kTickCount = 0x20C14Cu;  // dword, the quantiser's tick count (0x12F6C3 / 0x12F6FA)
@@ -57,6 +63,26 @@ HLE_STDCALL(D3DDevice_InsertCallback, 3) {
     uint32_t callback = a[1], context = a[2];
     if (callback != 0) ::kernel::CallGuest(ctx, callback, {context});
     return 0;
+}
+
+// XAPI's DVD media check, sub_000CA891 (no arguments, plain ret, NTSTATUS in eax), called once from
+// the process init sub_000CAA6B at 0xCAAC2. When the certificate's allowed media ([cert+0x9C] &
+// 0xFFFFFF) is DVD_X2 alone - the retail disc's XBE - it opens \Device\CdRom0 and sends five
+// IOCTL_SCSI_PASS_THROUGH_DIRECT (0x4D014) MODE SENSE 0x5A page 0x3E requests for the drive's
+// authentication page. The runtime has no drive and zeroes the reply, so the check returns
+// 0xC0000014 and the init calls the boot-to-dashboard routine sub_000CA775(0, 0, 0) at 0xCAB16 and
+// returns early: the launch is refused, but the per-title drive setup sub_000CA720 (0xCAB3A, T: ->
+// TDATA\<title id>, U: -> UDATA\<title id>) never runs. The game then finds no T:\ or U:\ and
+// reports no space to save. On a console with the disc in the drive the check passes, so it
+// returns success here; the init then continues as it would there.
+X86_FUNC(__imp__sub_000CA891);
+X86_FUNC(sub_000CA891) {
+    if (MediaCheckOff()) {
+        __imp__sub_000CA891(ctx, base);
+        return;
+    }
+    ctx.eax = 0;   // STATUS_SUCCESS
+    ctx.esp += 4;  // plain ret
 }
 
 // The frame step: the quantiser sub_0012F640 (this in ecx, float elapsed seconds on the stack,

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "the-sims-1-console",
+  "name": "Los Sims",
+  "port_version": "0.1.0-dev",
+  "status": "awaiting-original-game-data",
+  "upstream": {
+    "repository": "https://github.com/abilliontokens/sims1-recomp",
+    "revision": "aa665356bc893a702cdfeea58e2ee20ed466a16a",
+    "sdk_revision": "2c5c84496eaabf794d820b420c9b84ec09134f54"
+  },
+  "executable": "Sims1.exe",
+  "working_directory": ".",
+  "data_directory": "assets",
+  "original_data": {
+    "platform": "Xbox",
+    "region": "USA",
+    "title_id": "0x4541002F",
+    "xdk": 5233,
+    "xbe_sha1": "40ab6f97e8ee3bf4102a5a7820dcb8047fc30097",
+    "compatible_xbe_sha1": ["9e0526fc2ec6ad4896363486a404949ee3bea53f"],
+    "required_files": {
+      "audiostr.arc": 45060,
+      "audiostr.xwb": 146106368,
+      "chall.ngh": 622592,
+      "datasets.arc": 65136665,
+      "default.ngh": 352256,
+      "default.xbe": 2183168,
+      "dsstdfx.bin": 24936,
+      "index.ind": 122720,
+      "models.arc": 13025802,
+      "movies.arc": 59074560,
+      "quickdat.arc": 7731732,
+      "rletextu.arc": 6042070,
+      "samples.arc": 111936145,
+      "story.ngh": 520192
+    }
+  },
+  "languages": [
+    {"locale": "en-US", "evidence": "upstream", "locally_verified": false},
+    {"locale": "es-ES", "evidence": "pending-PAL-analysis", "available": false}
+  ],
+  "launch_arguments": [],
+  "save_location": {"relative_to": "executable", "path": "hdd", "profile_support": false, "round_trip_verified": false},
+  "graphics": {"backend_windows": "Direct3D 12", "fps_default": 60, "local_performance_verified": false, "widescreen_verified": false},
+  "controllers": {"backend": "SDL3", "dualsense_upstream_tested": true, "locally_verified": false, "second_player_verified": false}
+}

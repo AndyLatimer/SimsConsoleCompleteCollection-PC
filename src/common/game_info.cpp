@@ -12,6 +12,11 @@
 #include <cstdio>
 #include <string>
 
+namespace glyphs {
+void Install();             // src/common/button_glyphs.cpp
+extern uint32_t g_enabled;  // button_glyphs: 1 PlayStation, 0 Xbox
+}
+
 namespace {
 
 // Opt-in self-test (SIMS1_AUTOSTART): a scripted pad on port 0, repeating a 10 s
@@ -150,7 +155,20 @@ void PadHook(int port, input::Pad& pad) {
     kbm::Apply(port, pad);
 }
 
+// The title only has a 4:3 picture: its projection aspect is always 4/3 (0x12A8B0, camera default at
+// 0x133264) and its band is 640x432 (docs/picture-rect.md). "auto" would present it at the output's
+// shape - stretched at 16:9, and on a 21:9 output widened and cut off - so auto means 4:3 here.
+void Init() {
+    app::Settings& s = app::Get();
+    if (s.aspect_ratio == "auto") s.aspect_ratio = "4:3";
+    glyphs::Install();  // before the renderer is made (gpu/ext.h)
+}
+
 }  // namespace
+
+namespace sims1 {
+extern uint32_t g_language;  // src/game/language.cpp
+}
 
 // what the runtime asks of the game; strings must be set, hooks may stay null
 const app::GameInfo app::kGame = {
@@ -162,10 +180,12 @@ const app::GameInfo app::kGame = {
     .splash = L"splash",                     // optional splash.png or splash.bmp beside the exe
     .missing = L"Put the game in the assets folder: its disc image (.iso), or default.xbe with its .arc, .ngh and .xwb files beside it.",
     .images = {{"default.xbe", "Sims1"}},    // each recompiled xbe and its exe, for title launches
-    .options = {},                           // no game-specific settings yet
+    // language: 0 English, 1 French, 2 German, 3 Italian, 4 Spanish (src/game/language.cpp)
+    // button_glyphs: 1 PlayStation button icons, 0 the title's Xbox ones (src/common/button_glyphs.cpp)
+    .options = {{"language", nullptr, &sims1::g_language}, {"button_glyphs", nullptr, &glyphs::g_enabled}},
     .load = nullptr,                         // reads more from the settings file's toml::table
     .save = nullptr,                         // writes more into it
-    .init = nullptr,                         // after the settings load, before the window and boot
+    .init = &Init,                           // after the settings load, before the window and boot: 4:3
     .loaded = nullptr,                       // image in memory, before its entry point runs
     .window = nullptr,                       // the game window is up
 #if defined(_WIN32)
