@@ -6,6 +6,11 @@
 #include "common/overlay.h"
 #include "common/pad_script.h"
 
+namespace glyphs {
+extern uint32_t g_enabled;  // src/common/button_glyphs.cpp
+void Install();
+}  // namespace glyphs
+
 namespace {
 
 // Spanish (Spain) unless the settings file names a language. The Europe disc carries the official
@@ -20,6 +25,7 @@ void LoadSettings(const void* table) {
 
 void InitSettings() {
     if (!g_language_named) app::Get().language = "spanish";
+    glyphs::Install();  // before the renderer is made (gpu/ext.h)
 }
 
 // every polled pad: the scripted pad first (pad_script.cpp), then the keyboard and mouse
@@ -41,7 +47,9 @@ const app::GameInfo app::kGame = {
     .splash = L"splash",                  // optional splash.png or splash.bmp beside the exe
     .missing = L"Put the game in the assets folder: its disc image (.iso), or default.xbe with its DATA and movies folders beside it.",
     .images = {{"default.xbe", "Sims2"}}, // each recompiled xbe and its exe, for title launches
-    .options = {},                        // game settings kept in the settings file
+    // game settings kept in the settings file. button_glyphs: 1 PlayStation button icons, 0 the
+    // title's Xbox ones (src/common/button_glyphs.cpp)
+    .options = {{"button_glyphs", nullptr, &glyphs::g_enabled}},
     .load = &LoadSettings,                // reads more from the settings file's toml::table
     .save = nullptr,                      // writes more into it
     .init = &InitSettings,                // after the settings load, before the window and boot

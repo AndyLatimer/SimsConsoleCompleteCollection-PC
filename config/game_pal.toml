@@ -13,6 +13,9 @@ code_sections = [".text", "D3D", "XGRPH", "DSOUND", "XMV", "XPP"]
 
 # extra entry points
 [functions]
+# reached only through a pointer: indirect call from 0x1D70A5, trapped at 37.9 s in play (2026-11-06);
+# CC padding before it, ends in ret
+0x20BF0 = ""
 
 # functions the host replaces or calls by name, 0 where the image has none
 [symbols]
