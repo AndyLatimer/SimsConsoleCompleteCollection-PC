@@ -203,10 +203,12 @@ Shape Shaped() {
     changed |= pick_key.exchange(pick) != pick;
     if (changed) {
         Mode m = Output();
-        bool w = m.width * 2 >= m.height * 3;  // 3:2 or wider
         uint32_t chosen = pick >> 1;
         float aspect = chosen ? kAspects[chosen].aspect
                               : (m.height ? float(m.width) / float(m.height) : 16.0f / 9.0f);
+        // 3:2 or wider, unless a narrower aspect is chosen: an explicit 4:3 is a 4:3 TV on any output,
+        // presented pillarboxed, for a title that only ever projects 4:3
+        bool w = m.width * 2 >= m.height * 3 && !(chosen && aspect < 1.5f);
         // a 16:9 output divides out to exactly 1: every number downstream stays what it was
         float f = w && s.ultrawide ? std::clamp(aspect / (16.0f / 9.0f), 1.0f, 4.0f) : 1.0f;
         wide = w;
