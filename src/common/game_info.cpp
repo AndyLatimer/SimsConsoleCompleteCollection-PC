@@ -1,9 +1,26 @@
 #include "app/app.h"
+
+#include <toml++/toml.hpp>
+
 #include "common/input_kbm.h"
 #include "common/overlay.h"
 #include "common/pad_script.h"
 
 namespace {
+
+// Spanish (Spain) unless the settings file names a language. The Europe disc carries the official
+// Spanish text and its xbe picks it from the console language (XC_LANGUAGE, sdk settings
+// `language`); the USA xbe is not known to read it. Load only reaches kGame.load when the file
+// parses, so a first run with no file at all is settled in init, which comes after.
+bool g_language_named = false;
+
+void LoadSettings(const void* table) {
+    g_language_named = static_cast<const toml::table*>(table)->contains("language");
+}
+
+void InitSettings() {
+    if (!g_language_named) app::Get().language = "spanish";
+}
 
 // every polled pad: the scripted pad first (pad_script.cpp), then the keyboard and mouse
 // (input_kbm.cpp). Both only ever add to what a real controller reported.
@@ -25,9 +42,9 @@ const app::GameInfo app::kGame = {
     .missing = L"Put the game in the assets folder: its disc image (.iso), or default.xbe with its DATA and movies folders beside it.",
     .images = {{"default.xbe", "Sims2"}}, // each recompiled xbe and its exe, for title launches
     .options = {},                        // game settings kept in the settings file
-    .load = nullptr,                      // reads more from the settings file's toml::table
+    .load = &LoadSettings,                // reads more from the settings file's toml::table
     .save = nullptr,                      // writes more into it
-    .init = nullptr,                      // after the settings load, before the window and boot
+    .init = &InitSettings,                // after the settings load, before the window and boot
     .loaded = nullptr,                    // image in memory, before its entry point runs
     .window = nullptr,                    // the game window is up
 #if defined(_WIN32)

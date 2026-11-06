@@ -1,4 +1,4 @@
-// D3DDevice_InsertCallback(Flags, pCallback, Context) at 0x275750.
+// D3DDevice_InsertCallback(Flags, pCallback, Context): USA 0x275750, PAL 0x276EF0 ([symbols] in the region config).
 //
 // On the console this writes a callback token (0x00081D8C, with the 0x00040100 /
 // 0x00040110 fence words) into the push buffer; the D3D interrupt handler runs
