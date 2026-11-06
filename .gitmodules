@@ -1,4 +1,4 @@
 [submodule "sdk"]
 	path = sdk
-	url = https://github.com/abilliontokens/XboxXBERecomp.git
-	branch = sims1-port
+	url = https://github.com/AndyLatimer/SimsConsoleCompleteCollection-PC.git
+	branch = sdk/sims1-windows
