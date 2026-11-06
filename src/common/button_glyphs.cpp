@@ -82,7 +82,8 @@ Symbol Known(uint64_t h) {
         // Sims 2 (PAL), from a SIMS2_TEXDUMP of a play session (2026-11-06): 32x32 DXT3, one level,
         // a green ball with a black A filling the whole texture. B, X, Y and the other buttons were
         // not loaded as textures in that session.
-        case 0xdd9aa5936b90f73eull: return Symbol::Cross;  // A
+        case 0xdd9aa5936b90f73eull: return Symbol::Cross;   // A, green ball
+        case 0xbb44466a9f65d99full: return Symbol::Square;  // X, blue ball ("X para coger" in buy mode)
         default: return Symbol::None;
     }
 }
